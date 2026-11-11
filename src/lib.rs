@@ -155,6 +155,48 @@ pub fn new_password(len: usize) -> String {
     bytes.iter().map(|b| SET[(b & 63) as usize] as char).collect()
 }
 
+/// The first tab: every entry with a site.
+pub const WEB: &str = "Web";
+/// The second tab: every entry without one.
+pub const OTHER: &str = "Other";
+
+/// The tabs: Web and Other, then one for each tag in use.
+pub fn tabs(logins: &[Login]) -> Vec<String> {
+    let mut tags: Vec<String> = logins.iter().flat_map(|l| l.tags().map(str::to_string))
+        .filter(|t| !t.eq_ignore_ascii_case(WEB) && !t.eq_ignore_ascii_case(OTHER)).collect();
+    tags.sort_by_key(|t| t.to_lowercase());
+    tags.dedup_by_key(|t| t.to_lowercase());
+    let mut tabs = vec![WEB.to_string(), OTHER.to_string()];
+    tabs.extend(tags);
+    tabs
+}
+
+/// Web has every entry with a site and Other every one without. A
+/// tagged entry is in its tags' tabs as well.
+pub fn in_tab(l: &Login, tab: &str) -> bool {
+    match tab {
+        WEB => l.is_web(),
+        OTHER => !l.is_web(),
+        tag => l.tags().any(|t| t.to_lowercase() == tag.to_lowercase()),
+    }
+}
+
+/// The entries to list, by name: those of the tab, or with letters
+/// typed, every entry that has them in any field but the password.
+pub fn rows(logins: &[Login], tab: &str, find: &str) -> Vec<Login> {
+    let q = find.trim().to_lowercase();
+    let mut rows: Vec<Login> = logins.iter().filter(|l| {
+        if q.is_empty() { return in_tab(l, tab); }
+        [&l.title, &l.origin, &l.username, &l.group, &l.note].iter().any(|f| f.to_lowercase().contains(&q))
+    }).cloned().collect();
+    rows.sort_by_key(|l| (l.name().to_lowercase(), l.username.to_lowercase()));
+    rows
+}
+
+/// Are these two the same entry? The password, the note and the times
+/// may differ.
+pub fn same_entry(a: &Login, b: &Login) -> bool { a.id() == b.id() }
+
 pub struct Store {
     path: PathBuf,
     key: Option<[u8; 32]>,

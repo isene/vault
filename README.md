@@ -8,7 +8,7 @@
 
 The logins your browser fills, and the passwords it has no use for: a server, a door code. Part of the [Fe₂O₃ Rust terminal suite](https://github.com/isene/fe2o3).
 
-vault reads the same file as the [gaze](https://github.com/isene/gaze) browser and its phone half. A login gaze saves shows up here, and one you change here is the one gaze fills.
+vault reads the same file as the [gaze](https://github.com/isene/gaze) browser and its phone half. The phone has a [vault app](https://github.com/isene/nomad/tree/master/apps/vault) too. A login gaze saves shows up here, and one you change here is the one gaze fills.
 
 ## Using it
 

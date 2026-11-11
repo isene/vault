@@ -20,8 +20,7 @@ const GOOD_RGB: (u8, u8, u8) = (120, 230, 140);
 const BAR_BG: (u8, u8, u8) = (38, 38, 38);
 const PICK_BG: (u8, u8, u8) = (52, 48, 60);
 
-const WEB: &str = "Web";
-const OTHER: &str = "Other";
+use vault::{OTHER, WEB};
 /// With no key for this long the program ends, and the screen is cleared.
 const IDLE_MS: u64 = 300_000;
 
@@ -139,38 +138,14 @@ impl App {
         }
     }
 
-    /// The tabs: Web and Other, then one for each tag in use.
-    fn tabs(&self) -> Vec<String> {
-        let mut tags: Vec<String> = self.store.logins().iter().flat_map(|l| l.tags().map(str::to_string))
-            .filter(|t| !t.eq_ignore_ascii_case(WEB) && !t.eq_ignore_ascii_case(OTHER)).collect();
-        tags.sort_by_key(|t| t.to_lowercase());
-        tags.dedup_by_key(|t| t.to_lowercase());
-        let mut tabs = vec![WEB.to_string(), OTHER.to_string()];
-        tabs.extend(tags);
-        tabs
-    }
+    fn tabs(&self) -> Vec<String> { vault::tabs(self.store.logins()) }
 
-    /// Web has every entry with a site and Other every one without. A
-    /// tagged entry is in its tags' tabs as well.
-    fn in_tab(l: &Login, tab: &str) -> bool {
-        match tab {
-            WEB => l.is_web(),
-            OTHER => !l.is_web(),
-            tag => l.tags().any(|t| t.to_lowercase() == tag.to_lowercase()),
-        }
-    }
+    fn in_tab(l: &Login, tab: &str) -> bool { vault::in_tab(l, tab) }
 
     /// The entries in the list now, by name.
     fn rows(&self) -> Vec<Login> {
-        let tabs = self.tabs();
-        let tab = tabs.get(self.tab).cloned().unwrap_or_default();
-        let q = self.query.to_lowercase();
-        let mut rows: Vec<Login> = self.store.logins().iter().filter(|l| {
-            if q.is_empty() { return Self::in_tab(l, &tab); }
-            [&l.title, &l.origin, &l.username, &l.group, &l.note].iter().any(|f| f.to_lowercase().contains(&q))
-        }).cloned().collect();
-        rows.sort_by_key(|l| (l.name().to_lowercase(), l.username.to_lowercase()));
-        rows
+        let tab = self.tabs().get(self.tab).cloned().unwrap_or_default();
+        vault::rows(self.store.logins(), &tab, &self.query)
     }
 
     /// A new master password. The current one is asked for first, so an
