@@ -479,6 +479,63 @@ fn now() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
+/// Entries that may be the same thing twice: (entry, group, why). Each
+/// group is one thing; its web entries come first. A group always has
+/// an entry with no site in it, since those are the ones to tidy: the
+/// same password on two web sites is no double.
+///
+/// Two entries are tied when they have the same password (and the same
+/// user, when both have one), or when the name of one is the name of
+/// the other, or the main word of its site (`GitHub` and github.com).
+pub fn doubles(logins: &[Login]) -> Vec<(Login, usize, String)> {
+    let plain = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect::<String>();
+    // Per entry: its name, the main word of its site, its user.
+    let facts: Vec<(String, String, String)> = logins.iter().map(|l| {
+        let host = site_key(&l.origin);
+        let host = host.split_once("://").map(|(_, h)| h.to_string()).unwrap_or_default();
+        let mut parts: Vec<&str> = host.split('.').collect();
+        if parts.len() > 1 { parts.pop(); }
+        let word = if l.is_web() { plain(parts.last().unwrap_or(&"")) } else { String::new() };
+        (plain(&l.title), word, l.username.trim().to_lowercase())
+    }).collect();
+    let tie = |a: usize, b: usize| -> Option<&'static str> {
+        let (la, lb) = (&logins[a], &logins[b]);
+        if la.is_web() && lb.is_web() { return None; }
+        let (fa, fb) = (&facts[a], &facts[b]);
+        let users_fit = fa.2.is_empty() || fb.2.is_empty() || fa.2 == fb.2;
+        if la.password.len() >= 6 && la.password == lb.password && users_fit {
+            return Some(if !fa.2.is_empty() && fa.2 == fb.2 { "same user and password" } else { "same password" });
+        }
+        let names = |x: &(String, String, String), y: &(String, String, String)| {
+            x.0.len() >= 3 && (x.0 == y.0 || x.0 == y.1 || (y.1.len() >= 4 && x.0.contains(y.1.as_str())))
+        };
+        if names(fa, fb) || names(fb, fa) { return Some(if users_fit && !fa.2.is_empty() && fa.2 == fb.2 { "same name and user" } else { "same name" }); }
+        None
+    };
+    // Groups: every entry starts alone, and a tie joins two groups.
+    let n = logins.len();
+    let mut group: Vec<usize> = (0..n).collect();
+    let mut why: Vec<&str> = vec![""; n];
+    let strength = |w: &str| match w { "same user and password" => 4, "same name and user" => 3, "same password" => 2, "same name" => 1, _ => 0 };
+    for a in 0..n {
+        for b in a + 1..n {
+            let Some(w) = tie(a, b) else { continue };
+            for i in [a, b] { if strength(w) > strength(why[i]) { why[i] = w; } }
+            let (ga, gb) = (group[a], group[b]);
+            if ga != gb { for g in group.iter_mut() { if *g == gb { *g = ga; } } }
+        }
+    }
+    let mut ids: Vec<usize> = (0..n).filter(|&i| !why[i].is_empty()).collect();
+    ids.sort_by_key(|&i| (group[i], !logins[i].is_web(), logins[i].name().to_lowercase()));
+    let mut out = Vec::new();
+    let (mut last, mut number) = (usize::MAX, 0);
+    for i in ids {
+        if group[i] != last { last = group[i]; number += 1; }
+        out.push((logins[i].clone(), number, why[i].to_string()));
+    }
+    out
+}
+
 /// `scheme://host` of a URI, lower case, without a leading `www.`, so a
 /// login saved on www.example.com fills on example.com too.
 pub fn site_key(uri: &str) -> String {
@@ -595,6 +652,28 @@ mod tests {
         assert_eq!(s.clear_tags().unwrap(), (1, 1));
         assert_eq!(tabs(s.logins()), [OTHER, "Home", WEB]);
         done(&s);
+    }
+
+    #[test]
+    fn doubles_are_found_by_password_and_by_name() {
+        let e = |title: &str, origin: &str, user: &str, pw: &str| Login { title: title.into(), origin: origin.into(), username: user.into(), password: pw.into(), ..Login::default() };
+        let all = vec![
+            e("", "https://github.com", "alice", "pw-one-1"),
+            e("GitHub", "", "alice", "pw-one-1"),
+            e("My shop login", "", "bob", "other-pw"),
+            e("", "https://www.shop.example/login", "bob", "newer-pw"),
+            e("", "https://a.example", "carol", "reused-pw"),
+            e("", "https://b.example", "carol", "reused-pw"),
+            e("Door", "", "", "4711"),
+            e("Bike", "", "", "4711"),
+        ];
+        let got: Vec<_> = doubles(&all).into_iter().map(|(l, g, w)| (l.name(), g, w)).collect();
+        assert_eq!(got, [
+            ("github.com".to_string(), 1, "same user and password".to_string()),
+            ("GitHub".to_string(), 1, "same user and password".to_string()),
+            ("shop.example".to_string(), 2, "same name and user".to_string()),
+            ("My shop login".to_string(), 2, "same name and user".to_string()),
+        ], "two web sites with one password, and two short codes, are no doubles");
     }
 
     #[test]

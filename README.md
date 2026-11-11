@@ -31,6 +31,7 @@ Type a few letters and the list narrows to the entries that have them. Every fie
 | `Ctrl+D` or `Del` | Delete the entry, after a yes |
 | `Tab` | The next tab; `Shift+Tab` the one before |
 | `Ctrl+T` | A colour for the tag of this tab |
+| `F2` | Possible doubles: entries that may be one thing twice |
 | `Ctrl+P` | A new master password; asks for the current one first |
 | `Esc` | Clear what you typed, then quit |
 | `Ctrl+Q` | Quit |
@@ -41,6 +42,8 @@ Two tabs are always there: `Other` first, for entries with no site, and `Web` la
 On a tag's tab, `Ctrl+T` opens [prism](https://github.com/isene/prism) to pick the colour of its name. An entry's name in the list takes the colour of its first tag that has one. The colours are lines in `~/.vaultrc`: `colour work #78e68c`.
 
 In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a new password of 24 characters, and `Ctrl+Y` copies the field. `←` or `Esc` goes back, and asks whether to keep the changes. A long note opens in your editor.
+
+`F2` lists the entries that may be one thing twice, each group together and numbered, web entries first. An entry is listed when it has the password of another one, or its name, such as `GitHub` beside github.com. Each line says why. Delete the one you do not need, or open it and give it a site.
 
 After five minutes with no key, vault ends.
 

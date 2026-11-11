@@ -36,6 +36,9 @@ struct App {
     colours: Vec<(String, (u8, u8, u8))>,
     /// Where the cursor was in each tab left: its name, sel and top.
     places: Vec<(String, usize, usize)>,
+    /// F2: the list is the possible doubles, with why beside each.
+    doubles: bool,
+    why: Vec<String>,
 }
 
 fn main() {
@@ -47,7 +50,7 @@ fn main() {
         _ => {}
     }
     let path = std::env::var_os("VAULT_FILE").map(Into::into).unwrap_or_else(Store::default_path);
-    let mut app = App { store: Store::new(path), tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: read_colours(), places: Vec::new() };
+    let mut app = App { store: Store::new(path), tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: read_colours(), places: Vec::new(), doubles: false, why: Vec::new() };
     term_on();
     Crust::set_app_identity("vault");
     let said = if arg == "--import-hl" {
@@ -80,6 +83,7 @@ fn usage() {
     println!("  Ctrl+N         a new entry");
     println!("  Ctrl+D         delete the entry");
     println!("  Tab            the next tab");
+    println!("  F2             possible doubles: entries that may be one thing twice");
     println!("  Ctrl+T         a colour for the tag of this tab (prism picks it)");
     println!("  Ctrl+P         a new master password");
     println!("  Esc            empty the search, or quit");
@@ -202,7 +206,12 @@ impl App {
     fn in_tab(l: &Login, tab: &str) -> bool { vault::in_tab(l, tab) }
 
     /// The entries in the list now, by name.
-    fn rows(&self) -> Vec<Login> {
+    fn rows(&mut self) -> Vec<Login> {
+        if self.doubles {
+            let found = vault::doubles(self.store.logins());
+            self.why = found.iter().map(|(_, g, w)| format!("{g}: {w}")).collect();
+            return found.into_iter().map(|(l, _, _)| l).collect();
+        }
         let tab = self.tabs().get(self.tab).cloned().unwrap_or_default();
         vault::rows(self.store.logins(), &tab, &self.query)
     }
@@ -239,6 +248,13 @@ impl App {
             if key != "RESIZE" { self.note.clear(); }
             match key.as_str() {
                 "C-Q" => return,
+                "F2" => {
+                    self.doubles = !self.doubles;
+                    self.query.clear();
+                    self.sel = 0;
+                    self.top = 0;
+                }
+                "ESC" if self.doubles => { self.doubles = false; self.sel = 0; self.top = 0; }
                 "ESC" => {
                     if self.query.is_empty() { return; }
                     self.query.clear();
@@ -251,6 +267,7 @@ impl App {
                 "HOME" => self.sel = 0,
                 "END" => self.sel = usize::MAX / 2,
                 "TAB" | "S-TAB" => {
+                    self.doubles = false;
                     let tabs = self.tabs();
                     let n = tabs.len();
                     // Each tab keeps its line. A search has no place to keep.
@@ -301,6 +318,7 @@ impl App {
                 "F1" => { help(); Crust::clear_screen(); }
                 "BACK" => { self.query.pop(); self.sel = 0; }
                 k if k.chars().count() == 1 && !k.chars().next().is_some_and(char::is_control) => {
+                    self.doubles = false;
                     self.query.push_str(k);
                     self.sel = 0;
                 }
@@ -367,7 +385,12 @@ impl App {
         // The bar across the top: the tabs, or what is searched for.
         let mut bar = format!("{}{}", style::rgb(" ", None, Some(BAR_BG), ""), style::rgb("vault", Some(RUST_RGB), Some(BAR_BG), "b"));
         let mut used = 6;
-        if self.query.is_empty() {
+        if self.doubles {
+            let groups = self.why.iter().filter_map(|w| w.split(':').next()).last().unwrap_or("0").to_string();
+            let piece = format!("   possible doubles: {} entries in {} groups   (F2 or Esc: back)", list.len(), groups);
+            used += crust::display_width(&piece);
+            bar.push_str(&style::rgb(&piece, Some(GOOD_RGB), Some(BAR_BG), ""));
+        } else if self.query.is_empty() {
             for (i, t) in self.tabs().iter().enumerate() {
                 let piece = format!("   {t}");
                 used += crust::display_width(&piece);
@@ -399,7 +422,10 @@ impl App {
         for r in 0..room {
             let body = match list.get(self.top + r) {
                 Some(l) => {
-                    let last = if self.query.is_empty() {
+                    let last = if self.doubles {
+                        // Where it lives, its group, and what ties it to the group.
+                        format!("{:<5} {}", if l.is_web() { WEB } else { OTHER }, self.why.get(self.top + r).cloned().unwrap_or_default())
+                    } else if self.query.is_empty() {
                         if l.is_web() && !l.title.is_empty() { vault::site_key(&l.origin) } else { first_line(&l.note) }
                     } else {
                         // Where it lives, and its tags.
@@ -413,7 +439,7 @@ impl App {
                     if self.top + r == self.sel { pick(&line, w) } else { line }
                 }
                 None if r == 0 && list.is_empty() => {
-                    let why = if self.query.is_empty() { "nothing here yet; Ctrl+N makes an entry" } else { "nothing has those letters" };
+                    let why = if self.query.is_empty() { if self.doubles { "no possible doubles" } else { "nothing here yet; Ctrl+N makes an entry" } } else { "nothing has those letters" };
                     format!("   {}", style::rgb(why, Some(DIM_RGB), None, "i"))
                 }
                 None => String::new(),
@@ -552,6 +578,7 @@ fn help() {
     t.push_str(&format!("{}a new entry in this tab\n", key("Ctrl+N")));
     t.push_str(&format!("{}delete the entry\n", key("Ctrl+D")));
     t.push_str(&format!("{}the next tab; Shift+Tab the one before\n", key("Tab")));
+    t.push_str(&format!("{}possible doubles, side by side\n", key("F2")));
     t.push_str(&format!("{}a colour for this tab's tag\n", key("Ctrl+T")));
     t.push_str(&format!("{}a new master password\n", key("Ctrl+P")));
     t.push_str(&format!("{}empty the search, or quit\n", key("Esc")));
@@ -564,7 +591,7 @@ fn help() {
     t.push_str("  An entry with a Site is a web login: gaze fills it.\n");
     t.push_str("  Tags are words, with spaces between. Each has a tab.\n");
     t.push_str("  Five minutes with no key, and vault ends.");
-    Popup::centered(62, 25, 231, 236).view(&t);
+    Popup::centered(62, 26, 231, 236).view(&t);
 }
 
 fn first_line(s: &str) -> String { s.lines().next().unwrap_or("").to_string() }
@@ -618,7 +645,7 @@ mod tests {
         store.add(other("build server", "Servers")).unwrap();
         store.add(other("bike lock", "")).unwrap();
         store.add(Login { origin: "https://example.com".into(), username: "alice".into(), password: "p".into(), ..Login::default() }).unwrap();
-        App { store, tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: Vec::new(), places: Vec::new() }
+        App { store, tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: Vec::new(), places: Vec::new(), doubles: false, why: Vec::new() }
     }
 
     #[test]
@@ -626,15 +653,15 @@ mod tests {
         let mut a = app("tabs");
         a.store.add(Login { origin: "https://work.example".into(), group: "work, vpn".into(), password: "p".into(), ..Login::default() }).unwrap();
         assert_eq!(a.tabs(), ["Other", "Servers", "vpn", "Work", "Web"]);
-        let names = |a: &App| a.rows().iter().map(Login::name).collect::<Vec<_>>();
+        let names = |a: &mut App| a.rows().iter().map(Login::name).collect::<Vec<_>>();
         a.tab = 4;
-        assert_eq!(names(&a), ["example.com", "work.example"]);
+        assert_eq!(names(&mut a), ["example.com", "work.example"]);
         a.tab = 0;
-        assert_eq!(names(&a), ["bike lock", "build server", "office door"], "a tagged entry stays in Other");
+        assert_eq!(names(&mut a), ["bike lock", "build server", "office door"], "a tagged entry stays in Other");
         a.tab = 3;
-        assert_eq!(names(&a), ["office door", "work.example"], "a tag gathers web and other entries");
+        assert_eq!(names(&mut a), ["office door", "work.example"], "a tag gathers web and other entries");
         a.tab = 2;
-        assert_eq!(names(&a), ["work.example"], "an entry with two tags is in both tabs");
+        assert_eq!(names(&mut a), ["work.example"], "an entry with two tags is in both tabs");
     }
 
     #[test]
