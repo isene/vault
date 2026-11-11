@@ -27,7 +27,7 @@ Type a few letters and the list narrows to the entries that have them. Every fie
 | `Ctrl+Enter` | Copy, quit, and paste into the window you came from |
 | `Ctrl+U` | Copy the user name |
 | `→` | Open the entry: see and change everything, the password too |
-| `Ctrl+N` or `Ins` | A new entry |
+| `+`, `Ctrl+N` or `Ins` | A new entry (`+` only while nothing is typed) |
 | `Ctrl+D` or `Del` | Delete the entry, after a yes |
 | `Tab` | The next tab; `Shift+Tab` the one before |
 | `Ctrl+T` | A colour for the tag of this tab |

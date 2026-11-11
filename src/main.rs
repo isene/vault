@@ -80,7 +80,7 @@ fn usage() {
     println!("  Ctrl+Enter     copy, quit, and paste into the window before (vault-pop)");
     println!("  Ctrl+U         the user name to the clipboard");
     println!("  →              open the entry: see and change everything");
-    println!("  Ctrl+N         a new entry");
+    println!("  + or Ctrl+N    a new entry");
     println!("  Ctrl+D         delete the entry");
     println!("  Tab            the next tab");
     println!("  F2             possible doubles: entries that may be one thing twice");
@@ -312,6 +312,8 @@ impl App {
                 },
                 "RIGHT" => if let Some(l) = picked { self.edit(Some(l)); },
                 "C-N" | "INS" => self.edit(None),
+                // A plus with nothing typed; inside a search it is a letter.
+                "+" if self.query.is_empty() => self.edit(None),
                 "C-D" | "DEL" => if let Some(l) = picked { self.delete(l); },
                 "C-P" => { self.new_master(); Crust::clear_screen(); }
                 "C-T" => self.colour_tab(),
@@ -439,7 +441,7 @@ impl App {
                     if self.top + r == self.sel { pick(&line, w) } else { line }
                 }
                 None if r == 0 && list.is_empty() => {
-                    let why = if self.query.is_empty() { if self.doubles { "no possible doubles" } else { "nothing here yet; Ctrl+N makes an entry" } } else { "nothing has those letters" };
+                    let why = if self.query.is_empty() { if self.doubles { "no possible doubles" } else { "nothing here yet; + makes an entry" } } else { "nothing has those letters" };
                     format!("   {}", style::rgb(why, Some(DIM_RGB), None, "i"))
                 }
                 None => String::new(),
@@ -575,7 +577,7 @@ fn help() {
     t.push_str(&format!("{}copy, quit, paste into the window before\n", key("Ctrl+Enter")));
     t.push_str(&format!("{}the user name to the clipboard\n", key("Ctrl+U")));
     t.push_str(&format!("{}open the entry: every field, the password too\n", key("→")));
-    t.push_str(&format!("{}a new entry in this tab\n", key("Ctrl+N")));
+    t.push_str(&format!("{}a new entry in this tab\n", key("+ Ctrl+N")));
     t.push_str(&format!("{}delete the entry\n", key("Ctrl+D")));
     t.push_str(&format!("{}the next tab; Shift+Tab the one before\n", key("Tab")));
     t.push_str(&format!("{}possible doubles, side by side\n", key("F2")));
