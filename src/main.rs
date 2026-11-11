@@ -463,7 +463,7 @@ impl App {
         // Stay on the entry: its tab, and the cursor on it.
         self.query.clear();
         let tabs = self.tabs();
-        if !tabs.get(self.tab).is_some_and(|t| Self::in_tab(&l, t)) { self.tab = if l.is_web() { 0 } else { 1 }; }
+        if !tabs.get(self.tab).is_some_and(|t| Self::in_tab(&l, t)) { self.tab = if l.is_web() { tabs.len().saturating_sub(1) } else { 0 }; }
         self.sel = self.rows().iter().position(|r| r.name() == name && r.username == l.username).unwrap_or(0);
     }
 }
@@ -579,17 +579,18 @@ mod tests {
     }
 
     #[test]
-    fn the_tabs_are_web_and_other_then_the_tags() {
+    fn the_tabs_are_other_then_the_tags_then_web() {
         let mut a = app("tabs");
         a.store.add(Login { origin: "https://work.example".into(), group: "work, vpn".into(), password: "p".into(), ..Login::default() }).unwrap();
-        assert_eq!(a.tabs(), ["Web", "Other", "Servers", "vpn", "Work"]);
+        assert_eq!(a.tabs(), ["Other", "Servers", "vpn", "Work", "Web"]);
         let names = |a: &App| a.rows().iter().map(Login::name).collect::<Vec<_>>();
-        assert_eq!(names(&a), ["example.com", "work.example"]);
-        a.tab = 1;
-        assert_eq!(names(&a), ["bike lock", "build server", "office door"], "a tagged entry stays in Other");
         a.tab = 4;
-        assert_eq!(names(&a), ["office door", "work.example"], "a tag gathers web and other entries");
+        assert_eq!(names(&a), ["example.com", "work.example"]);
+        a.tab = 0;
+        assert_eq!(names(&a), ["bike lock", "build server", "office door"], "a tagged entry stays in Other");
         a.tab = 3;
+        assert_eq!(names(&a), ["office door", "work.example"], "a tag gathers web and other entries");
+        a.tab = 2;
         assert_eq!(names(&a), ["work.example"], "an entry with two tags is in both tabs");
     }
 

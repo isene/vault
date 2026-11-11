@@ -35,7 +35,7 @@ Type a few letters and the list narrows to the entries that have them. Every fie
 | `Ctrl+Q` | Quit |
 | `F1` | This list, in a box |
 
-Two tabs are always there: `Web` for entries with a site, `Other` for the rest. Give an entry tags, words with spaces between, and each tag gets a tab with every entry that has it.
+Two tabs are always there: `Other` first, for entries with no site, and `Web` last, for those gaze fills. Give an entry tags, words with spaces between, and each tag gets a tab with every entry that has it.
 
 On a tag's tab, `Ctrl+T` opens [prism](https://github.com/isene/prism) to pick the colour of its name. An entry's name in the list takes the colour of its first tag that has one. The colours are lines in `~/.vaultrc`: `colour work #78e68c`.
 

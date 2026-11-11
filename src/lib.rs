@@ -166,8 +166,11 @@ pub fn tabs(logins: &[Login]) -> Vec<String> {
         .filter(|t| !t.eq_ignore_ascii_case(WEB) && !t.eq_ignore_ascii_case(OTHER)).collect();
     tags.sort_by_key(|t| t.to_lowercase());
     tags.dedup_by_key(|t| t.to_lowercase());
-    let mut tabs = vec![WEB.to_string(), OTHER.to_string()];
+    // Web is last: gaze fills those by itself, so they are seldom why
+    // the program is opened.
+    let mut tabs = vec![OTHER.to_string()];
     tabs.extend(tags);
+    tabs.push(WEB.to_string());
     tabs
 }
 
@@ -590,7 +593,7 @@ mod tests {
         s.add(e("lock", "Home")).unwrap();
         s.add(e("lock", "")).unwrap();
         assert_eq!(s.clear_tags().unwrap(), (1, 1));
-        assert_eq!(tabs(s.logins()), [WEB, OTHER, "Home"]);
+        assert_eq!(tabs(s.logins()), [OTHER, "Home", WEB]);
         done(&s);
     }
 
