@@ -29,12 +29,15 @@ Type a few letters and the list narrows to the entries that have them. Every fie
 | `Ctrl+N` or `Ins` | A new entry |
 | `Ctrl+D` or `Del` | Delete the entry, after a yes |
 | `Tab` | The next tab; `Shift+Tab` the one before |
+| `Ctrl+T` | A colour for the tag of this tab |
 | `Ctrl+P` | A new master password; asks for the current one first |
 | `Esc` | Clear what you typed, then quit |
 | `Ctrl+Q` | Quit |
 | `F1` | This list, in a box |
 
 Two tabs are always there: `Web` for entries with a site, `Other` for the rest. Give an entry tags, words with spaces between, and each tag gets a tab with every entry that has it.
+
+On a tag's tab, `Ctrl+T` opens [prism](https://github.com/isene/prism) to pick the colour of its name. The colours are lines in `~/.vaultrc`: `colour work #78e68c`.
 
 In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a new password of 24 characters, and `Ctrl+Y` copies the field. `←` or `Esc` goes back, and asks whether to keep the changes. A long note opens in your editor.
 
@@ -56,9 +59,11 @@ Build server
 - A title can have several logins.
 - A web address under the title becomes the site.
 - Any other line goes into the note.
-- A heading above the title becomes its tag.
+- No entry gets a tag: the tags are yours to give.
 
 A file that [scribe](https://github.com/isene/scribe) sealed asks for its password first. vault prints how many entries it read, and nothing else.
+
+`vault --clear-tags` takes the tags off every entry.
 
 ## One paste, then gone
 

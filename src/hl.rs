@@ -9,8 +9,8 @@
 //! ```
 //!
 //! A title can have several logins. A line under it that is a web address
-//! becomes the site, and any other line goes into the note. A heading
-//! above the title becomes its tag.
+//! becomes the site, and any other line goes into the note. No entry gets
+//! a tag: tags are for the user to give.
 
 use vault::Login;
 
@@ -83,7 +83,6 @@ pub fn entries(outline: &str) -> (Vec<Login>, usize) {
             continue;
         }
         // A title with its lines.
-        let tag = above.last().map(|(_, t)| t.split_whitespace().collect::<Vec<_>>().join("-")).unwrap_or_default();
         let mut logins: Vec<(String, String)> = Vec::new();
         let mut origin = String::new();
         let mut rest: Vec<&str> = Vec::new();
@@ -103,7 +102,7 @@ pub fn entries(outline: &str) -> (Vec<Login>, usize) {
         if logins.is_empty() { logins.push((String::new(), String::new())); }
         let note = rest.join("\n");
         for (username, password) in logins {
-            out.push(Login { title: text.to_string(), group: tag.clone(), origin: origin.clone(), username, password, note: note.clone(), ..Login::default() });
+            out.push(Login { title: text.to_string(), origin: origin.clone(), username, password, note: note.clone(), ..Login::default() });
         }
         i += 1 + kids.len();
     }
@@ -122,8 +121,8 @@ mod tests {
         assert_eq!(lost, 1, "the line with nothing under it");
         let brief: Vec<_> = got.iter().map(|l| (l.title.as_str(), l.group.as_str(), l.username.as_str(), l.password.as_str())).collect();
         assert_eq!(brief, [
-            ("Build box", "Old-servers", "root", "pw one"),
-            ("Build box", "Old-servers", "deploy", "pw-two"),
+            ("Build box", "", "root", "pw one"),
+            ("Build box", "", "deploy", "pw-two"),
             ("Shop", "", "alice@example.com", "s3 / x"),
             ("Bike lock", "", "", "4711"),
         ]);

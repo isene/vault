@@ -438,6 +438,22 @@ impl Store {
         Ok(added)
     }
 
+    /// Take the tags off every entry. Returns (cleared, kept): an entry
+    /// keeps its tags when only they tell it from another one.
+    pub fn clear_tags(&mut self) -> Result<(usize, usize), String> {
+        self.fresh()?;
+        let (mut cleared, mut kept) = (0, 0);
+        for i in 0..self.logins.len() {
+            if self.logins[i].group.is_empty() { continue; }
+            let bare = Login { group: String::new(), ..self.logins[i].clone() };
+            if self.logins.iter().any(|l| l.id() == bare.id()) { kept += 1; continue; }
+            self.logins[i] = Login { changed: now(), ..bare };
+            cleared += 1;
+        }
+        if cleared > 0 { self.save()?; }
+        Ok((cleared, kept))
+    }
+
     fn save(&mut self) -> Result<(), String> {
         let Some(key) = self.key else { return Err("passwords are locked".into()) };
         let out = seal(&self.logins, &key, &self.salt)?;
@@ -562,6 +578,19 @@ mod tests {
         assert_eq!(found[0].username, "new");
         assert_eq!(found[0].password, "p,2\"q");
         assert_eq!(s.import_csv(csv).unwrap(), (0, 0));
+        done(&s);
+    }
+
+    #[test]
+    fn tags_come_off_unless_only_they_tell_two_entries_apart() {
+        let mut s = fresh("tags");
+        s.unlock("m").unwrap();
+        let e = |title: &str, group: &str| Login { title: title.into(), group: group.into(), password: "p".into(), ..Login::default() };
+        s.add(e("door", "Work")).unwrap();
+        s.add(e("lock", "Home")).unwrap();
+        s.add(e("lock", "")).unwrap();
+        assert_eq!(s.clear_tags().unwrap(), (1, 1));
+        assert_eq!(tabs(s.logins()), [WEB, OTHER, "Home"]);
         done(&s);
     }
 

@@ -32,6 +32,8 @@ struct App {
     sel: usize,
     top: usize,
     note: String,
+    /// The colour of a tag's tab, from ~/.vaultrc. Read once at the start.
+    colours: Vec<(String, (u8, u8, u8))>,
 }
 
 fn main() {
@@ -43,11 +45,19 @@ fn main() {
         _ => {}
     }
     let path = std::env::var_os("VAULT_FILE").map(Into::into).unwrap_or_else(Store::default_path);
-    let mut app = App { store: Store::new(path), tab: 0, query: String::new(), sel: 0, top: 0, note: String::new() };
+    let mut app = App { store: Store::new(path), tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: read_colours() };
     Crust::init();
     Crust::set_app_identity("vault");
     let said = if arg == "--import-hl" {
         Some(import_hl(&mut app, &std::env::args().nth(2).unwrap_or_default()))
+    } else if arg == "--clear-tags" {
+        Some(if !app.open() { "Nothing changed.".into() } else {
+            match app.store.clear_tags() {
+                Ok((n, 0)) => format!("Entries that lost their tags: {n}."),
+                Ok((n, k)) => format!("Entries that lost their tags: {n}. Kept theirs: {k}, since only the tag tells them from another entry."),
+                Err(e) => format!("vault: {e}. Nothing changed."),
+            }
+        })
     } else {
         if app.open() { app.run(); }
         None
@@ -67,12 +77,14 @@ fn usage() {
     println!("  Ctrl+N         a new entry");
     println!("  Ctrl+D         delete the entry");
     println!("  Tab            the next tab");
+    println!("  Ctrl+T         a colour for the tag of this tab (prism picks it)");
     println!("  Ctrl+P         a new master password");
     println!("  Esc            empty the search, or quit");
     println!("  F1             the keys");
     println!();
     println!("  vault --import-hl FILE   read an outline of passwords (title, then");
     println!("                           \"user / password\" indented under it)");
+    println!("  vault --clear-tags       take the tags off every entry");
     println!();
     println!("The file is ~/.gaze/sync/passwords (VAULT_FILE names another), the");
     println!("one gaze fills web logins from. A copied password leaves the");
@@ -103,6 +115,32 @@ fn import_hl(app: &mut App, file: &str) -> String {
 }
 
 /// The bottom line as a prompt. None when Esc was pressed.
+fn rc_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".vaultrc")
+}
+
+/// The lines `colour <tag> <#rrggbb>` of ~/.vaultrc.
+fn read_colours() -> Vec<(String, (u8, u8, u8))> {
+    let text = std::fs::read_to_string(rc_path()).unwrap_or_default();
+    text.lines().filter_map(|l| {
+        let mut w = l.split_whitespace();
+        if w.next()? != "colour" { return None; }
+        let tag = w.next()?.to_string();
+        Some((tag, style::parse_hex_color(w.next()?)?))
+    }).collect()
+}
+
+/// Write one tag's colour to ~/.vaultrc, in the place of its old line.
+fn write_colour(tag: &str, hex: &str) {
+    let text = std::fs::read_to_string(rc_path()).unwrap_or_default();
+    let mut lines: Vec<String> = text.lines().filter(|l| {
+        let mut w = l.split_whitespace();
+        !(w.next() == Some("colour") && w.next() == Some(tag))
+    }).map(String::from).collect();
+    lines.push(format!("colour {tag} {hex}"));
+    let _ = std::fs::write(rc_path(), lines.join("\n") + "\n");
+}
+
 fn ask(prompt: &str, initial: &str, secret: bool) -> Option<String> {
     let (cols, rows) = Crust::terminal_size();
     let mut p = Pane::new(1, rows, cols, 1, 255, 236);
@@ -217,6 +255,7 @@ impl App {
                 "C-N" | "INS" => self.edit(None),
                 "C-D" | "DEL" => if let Some(l) = picked { self.delete(l); },
                 "C-P" => { self.new_master(); Crust::clear_screen(); }
+                "C-T" => self.colour_tab(),
                 "F1" => { help(); Crust::clear_screen(); }
                 "BACK" => { self.query.pop(); self.sel = 0; }
                 k if k.chars().count() == 1 && !k.chars().next().is_some_and(char::is_control) => {
@@ -226,6 +265,39 @@ impl App {
                 _ => {}
             }
         }
+    }
+
+    /// A colour for the tag whose tab is open. prism picks it; the
+    /// colour is a line in ~/.vaultrc.
+    fn colour_tab(&mut self) {
+        let tab = self.tabs().get(self.tab).cloned().unwrap_or_default();
+        if tab == WEB || tab == OTHER {
+            self.note = "Web and Other have no colour: go to a tag's tab first".into();
+            return;
+        }
+        let out = std::env::temp_dir().join(format!("vault_pick_{}.txt", std::process::id()));
+        let _ = std::fs::remove_file(&out);
+        let now = self.colour(&tab).map(|(r, g, b)| format!("#{r:02x}{g:02x}{b:02x}")).unwrap_or_else(|| "#f78c3c".into());
+        Crust::cleanup();
+        let ran = std::process::Command::new("prism").arg("--pick").arg(format!("--out={}", out.display())).arg(&now).status();
+        Crust::init();
+        Crust::clear_screen();
+        let text = std::fs::read_to_string(&out).unwrap_or_default();
+        let _ = std::fs::remove_file(&out);
+        let hex = text.lines().find_map(|l| { let h = l.strip_prefix("fg=").unwrap_or(l).trim(); style::parse_hex_color(h).map(|_| h.to_string()) });
+        self.note = match (ran, hex) {
+            (Err(_), _) => "prism is not installed".into(),
+            (_, None) => "no colour picked".into(),
+            (_, Some(hex)) => {
+                write_colour(&tab, &hex);
+                self.colours = read_colours();
+                format!("{tab} is {hex} now")
+            }
+        };
+    }
+
+    fn colour(&self, tag: &str) -> Option<(u8, u8, u8)> {
+        self.colours.iter().find(|(t, _)| t == tag).map(|(_, c)| *c)
     }
 
     fn delete(&mut self, l: Login) {
@@ -257,8 +329,16 @@ impl App {
             for (i, t) in self.tabs().iter().enumerate() {
                 let piece = format!("   {t}");
                 used += crust::display_width(&piece);
-                let (fg, attr) = if i == self.tab { (HEAD_RGB, "b") } else { (DIM_RGB, "") };
-                bar.push_str(&style::rgb(&piece, Some(fg), Some(BAR_BG), attr));
+                // A tag with a colour of its own has it in both states;
+                // the open tab is bold and underlined.
+                let (fg, attr) = match (self.colour(t), i == self.tab) {
+                    (Some(c), true) => (c, "bu"),
+                    (Some(c), false) => (c, ""),
+                    (None, true) => (HEAD_RGB, "b"),
+                    (None, false) => (DIM_RGB, ""),
+                };
+                bar.push_str(&style::rgb("   ", None, Some(BAR_BG), ""));
+                bar.push_str(&style::rgb(t, Some(fg), Some(BAR_BG), attr));
             }
         } else {
             let piece = format!("   find: {}▏  ({})", self.query, list.len());
@@ -428,6 +508,7 @@ fn help() {
     t.push_str(&format!("{}a new entry in this tab\n", key("Ctrl+N")));
     t.push_str(&format!("{}delete the entry\n", key("Ctrl+D")));
     t.push_str(&format!("{}the next tab; Shift+Tab the one before\n", key("Tab")));
+    t.push_str(&format!("{}a colour for this tab's tag\n", key("Ctrl+T")));
     t.push_str(&format!("{}a new master password\n", key("Ctrl+P")));
     t.push_str(&format!("{}empty the search, or quit\n", key("Esc")));
     t.push_str(&format!(" {}\n", hdr("AN ENTRY")));
@@ -439,7 +520,7 @@ fn help() {
     t.push_str("  An entry with a Site is a web login: gaze fills it.\n");
     t.push_str("  Tags are words, with spaces between. Each has a tab.\n");
     t.push_str("  Five minutes with no key, and vault ends.");
-    Popup::centered(62, 23, 231, 236).view(&t);
+    Popup::centered(62, 24, 231, 236).view(&t);
 }
 
 fn first_line(s: &str) -> String { s.lines().next().unwrap_or("").to_string() }
@@ -493,7 +574,7 @@ mod tests {
         store.add(other("build server", "Servers")).unwrap();
         store.add(other("bike lock", "")).unwrap();
         store.add(Login { origin: "https://example.com".into(), username: "alice".into(), password: "p".into(), ..Login::default() }).unwrap();
-        App { store, tab: 0, query: String::new(), sel: 0, top: 0, note: String::new() }
+        App { store, tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: Vec::new() }
     }
 
     #[test]
