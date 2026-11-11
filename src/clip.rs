@@ -32,9 +32,14 @@ pub fn copy(secret: &str) -> bool {
     use std::io::Write;
     if std::env::var_os("DISPLAY").is_none() { return false; }
     let Ok(me) = std::env::current_exe() else { return false };
-    // setsid: the helper outlives this program and its terminal.
+    use std::os::unix::process::CommandExt;
+    // setsid: the helper outlives this program and its terminal. A
+    // process group of its own from the first instant: vault may quit
+    // right after (Ctrl+Enter), and the closing terminal hangs up on its
+    // foreground group before setsid has run.
     let Ok(mut child) = std::process::Command::new("setsid")
         .arg(me).arg("--clip")
+        .process_group(0)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())

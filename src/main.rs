@@ -48,7 +48,7 @@ fn main() {
     }
     let path = std::env::var_os("VAULT_FILE").map(Into::into).unwrap_or_else(Store::default_path);
     let mut app = App { store: Store::new(path), tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: read_colours(), places: Vec::new() };
-    Crust::init();
+    term_on();
     Crust::set_app_identity("vault");
     let said = if arg == "--import-hl" {
         Some(import_hl(&mut app, &std::env::args().nth(2).unwrap_or_default()))
@@ -65,7 +65,7 @@ fn main() {
         None
     };
     Crust::clear_screen();
-    Crust::cleanup();
+    term_off();
     if let Some(said) = said { println!("{said}"); }
 }
 
@@ -74,6 +74,7 @@ fn usage() {
     println!();
     println!("  type           find: every entry that has the letters, in any tab");
     println!("  Enter          the password to the clipboard, for one paste");
+    println!("  Ctrl+Enter     copy, quit, and paste into the window before (vault-pop)");
     println!("  Ctrl+U         the user name to the clipboard");
     println!("  →              open the entry: see and change everything");
     println!("  Ctrl+N         a new entry");
@@ -117,6 +118,24 @@ fn import_hl(app: &mut App, file: &str) -> String {
 }
 
 /// The bottom line as a prompt. None when Esc was pressed.
+/// The terminal for the program. Ctrl+Enter is told from Enter only by
+/// a terminal that is asked to (the kitty keyboard protocol); others
+/// ignore the request.
+fn term_on() {
+    Crust::init();
+    Crust::enable_modifier_keys();
+}
+
+fn term_off() {
+    Crust::disable_modifier_keys();
+    Crust::cleanup();
+}
+
+/// The file that tells vault-pop to paste: Ctrl+Enter was pressed.
+fn paste_flag() -> std::path::PathBuf {
+    std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir).join("vault-paste")
+}
+
 fn rc_path() -> std::path::PathBuf {
     std::path::PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".vaultrc")
 }
@@ -246,6 +265,18 @@ impl App {
                     self.sel = sel;
                     self.top = top;
                 }
+                // Copy, leave, and have vault-pop paste into the window
+                // that was in front before.
+                "C-ENTER" => if let Some(l) = picked {
+                    if l.password.is_empty() {
+                        self.note = format!("{} has no password", l.name());
+                    } else if clip::copy(&l.password) {
+                        let _ = std::fs::write(paste_flag(), b"");
+                        return;
+                    } else {
+                        self.note = "no X display here: Enter copies through the terminal".into();
+                    }
+                },
                 "ENTER" => if let Some(l) = picked {
                     self.note = if l.password.is_empty() {
                         format!("{} has no password", l.name())
@@ -289,9 +320,9 @@ impl App {
         let out = std::env::temp_dir().join(format!("vault_pick_{}.txt", std::process::id()));
         let _ = std::fs::remove_file(&out);
         let now = self.colour(&tab).map(|(r, g, b)| format!("#{r:02x}{g:02x}{b:02x}")).unwrap_or_else(|| "#f78c3c".into());
-        Crust::cleanup();
+        term_off();
         let ran = std::process::Command::new("prism").arg("--pick").arg(format!("--out={}", out.display())).arg(&now).status();
-        Crust::init();
+        term_on();
         Crust::clear_screen();
         let text = std::fs::read_to_string(&out).unwrap_or_default();
         let _ = std::fs::remove_file(&out);
@@ -489,9 +520,9 @@ fn in_editor(text: &str) -> Result<String, String> {
         .and_then(|mut f| f.write_all(text.as_bytes()));
     if let Err(e) = made { return Err(e.to_string()); }
     let editor = std::env::var("VISUAL").or_else(|_| std::env::var("EDITOR")).unwrap_or_else(|_| "scribe".into());
-    Crust::cleanup();
+    term_off();
     let ran = std::process::Command::new(&editor).arg(&path).status();
-    Crust::init();
+    term_on();
     let out = std::fs::read_to_string(&path).map(|t| t.trim_end().to_string()).map_err(|e| e.to_string());
     let _ = std::fs::remove_file(&path);
     match ran { Ok(s) if s.success() => out, Ok(_) => Err(format!("{editor} ended badly; the note is as it was")), Err(e) => Err(format!("{editor}: {e}")) }
@@ -515,6 +546,7 @@ fn help() {
     t.push_str(&format!(" {}\n", hdr("THE LIST")));
     t.push_str(&format!("{}find: every entry with the letters, in any tab\n", key("type")));
     t.push_str(&format!("{}the password to the clipboard, for one paste\n", key("Enter")));
+    t.push_str(&format!("{}copy, quit, paste into the window before\n", key("Ctrl+Enter")));
     t.push_str(&format!("{}the user name to the clipboard\n", key("Ctrl+U")));
     t.push_str(&format!("{}open the entry: every field, the password too\n", key("→")));
     t.push_str(&format!("{}a new entry in this tab\n", key("Ctrl+N")));
@@ -532,7 +564,7 @@ fn help() {
     t.push_str("  An entry with a Site is a web login: gaze fills it.\n");
     t.push_str("  Tags are words, with spaces between. Each has a tab.\n");
     t.push_str("  Five minutes with no key, and vault ends.");
-    Popup::centered(62, 24, 231, 236).view(&t);
+    Popup::centered(62, 25, 231, 236).view(&t);
 }
 
 fn first_line(s: &str) -> String { s.lines().next().unwrap_or("").to_string() }

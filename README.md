@@ -24,6 +24,7 @@ Type a few letters and the list narrows to the entries that have them. Every fie
 |---|---|
 | letters | Find |
 | `Enter` | Copy the password, for one paste |
+| `Ctrl+Enter` | Copy, quit, and paste into the window you came from |
 | `Ctrl+U` | Copy the user name |
 | `→` | Open the entry: see and change everything, the password too |
 | `Ctrl+N` or `Ins` | A new entry |
@@ -74,6 +75,14 @@ With no paste it ends after 30 seconds, or when you copy something else. In betw
 The helper marks the clipboard as a password (`x-kde-passwordManagerHint`). A clipboard history that honours the mark, such as [yank](https://github.com/isene/yank) from 0.3.9, keeps no copy.
 
 Outside X there is no helper. vault then copies through the terminal (OSC 52), and the password stays until you copy something else.
+
+## One key from anywhere
+
+`bin/vault-pop` opens vault in a [glass](https://github.com/isene/glass) terminal of its own. Bind it to a key in your window manager.
+
+`Ctrl+Enter` on an entry then closes vault and pastes the password into the window you were in. The paste is one Shift+Insert, sent by [yank](https://github.com/isene/yank).
+
+Started by hand in a terminal, `Ctrl+Enter` copies and quits, and the paste is yours to do.
 
 ## The file
 
