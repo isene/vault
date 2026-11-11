@@ -1,6 +1,6 @@
 [package]
 name = "vault"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2021"
 description = "Passwords in one encrypted file: a terminal program to find, copy and change them, and the library gaze and the phone read the same file with"
 license = "Unlicense"

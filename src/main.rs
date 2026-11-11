@@ -34,6 +34,8 @@ struct App {
     note: String,
     /// The colour of a tag's tab, from ~/.vaultrc. Read once at the start.
     colours: Vec<(String, (u8, u8, u8))>,
+    /// Where the cursor was in each tab left: its name, sel and top.
+    places: Vec<(String, usize, usize)>,
 }
 
 fn main() {
@@ -45,7 +47,7 @@ fn main() {
         _ => {}
     }
     let path = std::env::var_os("VAULT_FILE").map(Into::into).unwrap_or_else(Store::default_path);
-    let mut app = App { store: Store::new(path), tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: read_colours() };
+    let mut app = App { store: Store::new(path), tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: read_colours(), places: Vec::new() };
     Crust::init();
     Crust::set_app_identity("vault");
     let said = if arg == "--import-hl" {
@@ -230,10 +232,19 @@ impl App {
                 "HOME" => self.sel = 0,
                 "END" => self.sel = usize::MAX / 2,
                 "TAB" | "S-TAB" => {
-                    let n = self.tabs().len();
+                    let tabs = self.tabs();
+                    let n = tabs.len();
+                    // Each tab keeps its line. A search has no place to keep.
+                    if self.query.is_empty() {
+                        let here = tabs[self.tab].clone();
+                        self.places.retain(|(t, _, _)| *t != here);
+                        self.places.push((here, self.sel, self.top));
+                    }
                     self.tab = if key == "S-TAB" { (self.tab + n - 1) % n } else { (self.tab + 1) % n };
                     self.query.clear();
-                    self.sel = 0;
+                    let (sel, top) = self.places.iter().find(|(t, _, _)| *t == tabs[self.tab]).map(|(_, s, t)| (*s, *t)).unwrap_or((0, 0));
+                    self.sel = sel;
+                    self.top = top;
                 }
                 "ENTER" => if let Some(l) = picked {
                     self.note = if l.password.is_empty() {
@@ -575,7 +586,7 @@ mod tests {
         store.add(other("build server", "Servers")).unwrap();
         store.add(other("bike lock", "")).unwrap();
         store.add(Login { origin: "https://example.com".into(), username: "alice".into(), password: "p".into(), ..Login::default() }).unwrap();
-        App { store, tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: Vec::new() }
+        App { store, tab: 0, query: String::new(), sel: 0, top: 0, note: String::new(), colours: Vec::new(), places: Vec::new() }
     }
 
     #[test]
