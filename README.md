@@ -41,7 +41,7 @@ Two tabs are always there: `Other` first, for entries with no site, and `Web` la
 
 On a tag's tab, `Ctrl+T` opens [prism](https://github.com/isene/prism) to pick the colour of its name. An entry's name in the list takes the colour of its first tag that has one. The colours are lines in `~/.vaultrc`: `colour work #78e68c`.
 
-In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a new password of 24 characters, and `Ctrl+Y` copies the field. `←` or `Esc` goes back, and asks whether to keep the changes. A long note opens in your editor.
+In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a new password of 24 characters, and `Ctrl+Y` copies the field. `←` or `Esc` goes back, and asks whether to keep the changes. `Ctrl+E` opens the note in your editor, for a note of many lines; a long note opens there on `Enter` too.
 
 `F2` lists the entries that may be one thing twice, each group together and numbered, web entries first. An entry is listed when it has the password of another one, or its name, such as `GitHub` beside github.com. Each line says why. Delete the one you do not need, or open it and give it a site.
 

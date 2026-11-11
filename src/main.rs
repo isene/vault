@@ -486,7 +486,7 @@ impl App {
                 }
             }
             for clear in y..rows { out.push_str(&format!("{}{}", Cursor::at(1, clear), seq::ERASE_EOL)); }
-            out.push_str(&foot(&note, "↑ ↓ field · Enter change it · Ctrl+G make a password · Ctrl+Y copy the field · ← back", w, rows));
+            out.push_str(&foot(&note, "↑ ↓ field · Enter change · Ctrl+G new password · Ctrl+Y copy · Ctrl+E note in editor · ← back", w, rows));
             print!("{out}");
             std::io::stdout().flush().ok();
 
@@ -500,6 +500,15 @@ impl App {
                     let v = [&l.title, &l.group, &l.origin, &l.username, &l.password, &l.note][at].clone();
                     if at == 4 && clip::copy(&v) { note = "password copied: gone after one paste, or in 30 seconds".into(); }
                     else { crust::clipboard_copy(&v, "clipboard"); note = format!("{} copied", NAMES[at].to_lowercase()); }
+                }
+                // The note in the editor, for as many lines as it needs.
+                "C-E" => {
+                    at = 5;
+                    match in_editor(&l.note) {
+                        Ok(t) => l.note = t,
+                        Err(e) => note = e,
+                    }
+                    Crust::clear_screen();
                 }
                 "ENTER" => {
                     let field = [&mut l.title, &mut l.group, &mut l.origin, &mut l.username, &mut l.password, &mut l.note];
@@ -588,12 +597,13 @@ fn help() {
     t.push_str(&format!("{}change the field under the cursor\n", key("Enter")));
     t.push_str(&format!("{}make a new password\n", key("Ctrl+G")));
     t.push_str(&format!("{}copy the field\n", key("Ctrl+Y")));
+    t.push_str(&format!("{}the note in your editor, for many lines\n", key("Ctrl+E")));
     t.push_str(&format!("{}back; asks before it keeps a change\n", key("← Esc")));
     t.push_str(&format!(" {}\n", hdr("GOOD TO KNOW")));
     t.push_str("  An entry with a Site is a web login: gaze fills it.\n");
     t.push_str("  Tags are words, with spaces between. Each has a tab.\n");
     t.push_str("  Five minutes with no key, and vault ends.");
-    Popup::centered(62, 26, 231, 236).view(&t);
+    Popup::centered(62, 27, 231, 236).view(&t);
 }
 
 fn first_line(s: &str) -> String { s.lines().next().unwrap_or("").to_string() }
