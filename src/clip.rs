@@ -1,7 +1,7 @@
 //! A password on the clipboard, for one paste.
 //!
 //! `vault --clip` reads the password on its standard input and owns the
-//! CLIPBOARD selection itself. The first program that pastes gets it;
+//! CLIPBOARD and PRIMARY selections itself. The first program that pastes gets it;
 //! a moment later this one ends, and the clipboard is empty again. With
 //! no paste it ends after half a minute. It sleeps in the kernel between
 //! those events, and it does not exist the rest of the day.
@@ -60,6 +60,8 @@ pub fn serve() {
         &CreateWindowAux::new().event_mask(EventMask::NO_EVENT));
     if made.is_err() { return; }
     let _ = conn.set_selection_owner(win, clipboard, x11rb::CURRENT_TIME);
+    // The mouse selection too: a terminal pastes that one on Shift+Insert.
+    let _ = conn.set_selection_owner(win, u32::from(AtomEnum::PRIMARY), x11rb::CURRENT_TIME);
     let _ = conn.flush();
     let owner = conn.get_selection_owner(clipboard).ok().and_then(|c| c.reply().ok()).map(|r| r.owner);
     if owner != Some(win) { return; }
