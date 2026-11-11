@@ -40,6 +40,26 @@ In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a 
 
 After five minutes with no key, vault ends.
 
+## Passwords from an outline
+
+```bash
+vault --import-hl passwords.hl
+```
+
+This reads passwords kept as an outline, such as a HyperList. A title, with the login indented under it:
+
+```
+Build server
+    root / the-password
+```
+
+- A title can have several logins.
+- A web address under the title becomes the site.
+- Any other line goes into the note.
+- A heading above the title becomes its tag.
+
+A file that [scribe](https://github.com/isene/scribe) sealed asks for its password first. vault prints how many entries it read, and nothing else.
+
 ## One paste, then gone
 
 `Enter` hands the password to a small helper that owns the clipboard. The first program that pastes gets it. Two seconds later the helper ends, and the clipboard is empty.

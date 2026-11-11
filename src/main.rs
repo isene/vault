@@ -6,6 +6,7 @@
 //! opens the entry to see and change everything.
 
 mod clip;
+mod hl;
 
 use crust::{seq, style, Crust, Cursor, Input, Pane, Popup};
 use std::io::Write;
@@ -46,9 +47,15 @@ fn main() {
     let mut app = App { store: Store::new(path), tab: 0, query: String::new(), sel: 0, top: 0, note: String::new() };
     Crust::init();
     Crust::set_app_identity("vault");
-    if app.open() { app.run(); }
+    let said = if arg == "--import-hl" {
+        Some(import_hl(&mut app, &std::env::args().nth(2).unwrap_or_default()))
+    } else {
+        if app.open() { app.run(); }
+        None
+    };
     Crust::clear_screen();
     Crust::cleanup();
+    if let Some(said) = said { println!("{said}"); }
 }
 
 fn usage() {
@@ -57,16 +64,43 @@ fn usage() {
     println!("  type           find: every entry that has the letters, in any tab");
     println!("  Enter          the password to the clipboard, for one paste");
     println!("  Ctrl+U         the user name to the clipboard");
-    println!("  Tab            open the entry: see and change everything");
+    println!("  →              open the entry: see and change everything");
     println!("  Ctrl+N         a new entry");
     println!("  Ctrl+D         delete the entry");
-    println!("  ← →            the tab to the left or right");
+    println!("  Tab            the next tab");
+    println!("  Ctrl+P         a new master password");
     println!("  Esc            empty the search, or quit");
     println!("  F1             the keys");
+    println!();
+    println!("  vault --import-hl FILE   read an outline of passwords (title, then");
+    println!("                           \"user / password\" indented under it)");
     println!();
     println!("The file is ~/.gaze/sync/passwords (VAULT_FILE names another), the");
     println!("one gaze fills web logins from. A copied password leaves the");
     println!("clipboard after the first paste, or after 30 seconds unused.");
+}
+
+/// Read an outline of passwords into the store. The answer is a count:
+/// nothing of the file is ever printed.
+fn import_hl(app: &mut App, file: &str) -> String {
+    let Ok(text) = std::fs::read_to_string(file) else { return format!("vault: cannot read {file}") };
+    let outline = if hl::sealed(&text) {
+        Crust::clear_screen();
+        let Some(pw) = ask(" Password of the file to import: ", "", true) else { return "Nothing imported.".into() };
+        match hl::unseal(&text, &pw) {
+            Ok(o) => o,
+            Err(e) => return format!("vault: {e}. Nothing imported."),
+        }
+    } else {
+        text
+    };
+    let (found, lost) = hl::entries(&outline);
+    if !app.open() { return "Nothing imported.".into(); }
+    let n = found.len();
+    match app.store.import(found) {
+        Ok(added) => format!("Imported {added} entries; {} were there already. {lost} lines fit no entry.\nCheck them in vault, then delete the old file yourself.", n - added),
+        Err(e) => format!("vault: {e}. Nothing imported."),
+    }
 }
 
 /// The bottom line as a prompt. None when Esc was pressed.
