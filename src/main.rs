@@ -182,9 +182,9 @@ impl App {
                 "PgUP" => self.sel = self.sel.saturating_sub(page),
                 "HOME" => self.sel = 0,
                 "END" => self.sel = usize::MAX / 2,
-                "LEFT" | "RIGHT" => {
+                "TAB" | "S-TAB" => {
                     let n = self.tabs().len();
-                    self.tab = if key == "LEFT" { (self.tab + n - 1) % n } else { (self.tab + 1) % n };
+                    self.tab = if key == "S-TAB" { (self.tab + n - 1) % n } else { (self.tab + 1) % n };
                     self.query.clear();
                     self.sel = 0;
                 }
@@ -204,7 +204,7 @@ impl App {
                     crust::clipboard_copy(&l.username, "clipboard");
                     self.note = format!("user name of {} copied", l.name());
                 },
-                "TAB" => if let Some(l) = picked { self.edit(Some(l)); },
+                "RIGHT" => if let Some(l) = picked { self.edit(Some(l)); },
                 "C-N" | "INS" => self.edit(None),
                 "C-D" | "DEL" => if let Some(l) = picked { self.delete(l); },
                 "C-P" => { self.new_master(); Crust::clear_screen(); }
@@ -288,7 +288,7 @@ impl App {
             };
             out.push_str(&format!("{}{}{}", Cursor::at(1, 3 + r as u16), body, seq::ERASE_EOL));
         }
-        out.push_str(&foot(&self.note, "type to find · Enter copy password · Tab open · ← → tabs · F1 all keys · Esc quit", w, rows));
+        out.push_str(&foot(&self.note, "type to find · Enter copy password · → open · Tab next tab · F1 all keys · Esc quit", w, rows));
         print!("{out}");
         std::io::stdout().flush().ok();
     }
@@ -326,7 +326,7 @@ impl App {
                 }
             }
             for clear in y..rows { out.push_str(&format!("{}{}", Cursor::at(1, clear), seq::ERASE_EOL)); }
-            out.push_str(&foot(&note, "↑ ↓ field · Enter change it · Ctrl+G make a password · Ctrl+Y copy the field · Esc back", w, rows));
+            out.push_str(&foot(&note, "↑ ↓ field · Enter change it · Ctrl+G make a password · Ctrl+Y copy the field · ← back", w, rows));
             print!("{out}");
             std::io::stdout().flush().ok();
 
@@ -355,7 +355,7 @@ impl App {
                         *target = v.trim().to_string();
                     }
                 }
-                "ESC" | "C-Q" => break,
+                "ESC" | "LEFT" | "C-Q" => break,
                 _ => {}
             }
         }
@@ -415,17 +415,17 @@ fn help() {
     t.push_str(&format!("{}find: every entry with the letters, in any tab\n", key("type")));
     t.push_str(&format!("{}the password to the clipboard, for one paste\n", key("Enter")));
     t.push_str(&format!("{}the user name to the clipboard\n", key("Ctrl+U")));
-    t.push_str(&format!("{}open the entry\n", key("Tab")));
+    t.push_str(&format!("{}open the entry: every field, the password too\n", key("→")));
     t.push_str(&format!("{}a new entry in this tab\n", key("Ctrl+N")));
     t.push_str(&format!("{}delete the entry\n", key("Ctrl+D")));
-    t.push_str(&format!("{}the tab to the left or right\n", key("← →")));
+    t.push_str(&format!("{}the next tab; Shift+Tab the one before\n", key("Tab")));
     t.push_str(&format!("{}a new master password\n", key("Ctrl+P")));
     t.push_str(&format!("{}empty the search, or quit\n", key("Esc")));
     t.push_str(&format!(" {}\n", hdr("AN ENTRY")));
     t.push_str(&format!("{}change the field under the cursor\n", key("Enter")));
     t.push_str(&format!("{}make a new password\n", key("Ctrl+G")));
     t.push_str(&format!("{}copy the field\n", key("Ctrl+Y")));
-    t.push_str(&format!("{}back; asks before it keeps a change\n", key("Esc")));
+    t.push_str(&format!("{}back; asks before it keeps a change\n", key("← Esc")));
     t.push_str(&format!(" {}\n", hdr("GOOD TO KNOW")));
     t.push_str("  An entry with a Site is a web login: gaze fills it.\n");
     t.push_str("  Tags are words, with spaces between. Each has a tab.\n");

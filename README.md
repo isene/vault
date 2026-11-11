@@ -25,10 +25,10 @@ Type a few letters and the list narrows to the entries that have them. Every fie
 | letters | Find |
 | `Enter` | Copy the password, for one paste |
 | `Ctrl+U` | Copy the user name |
-| `Tab` | Open the entry: see and change everything |
+| `→` | Open the entry: see and change everything, the password too |
 | `Ctrl+N` or `Ins` | A new entry |
 | `Ctrl+D` or `Del` | Delete the entry, after a yes |
-| `←` `→` | The tab to the left or right |
+| `Tab` | The next tab; `Shift+Tab` the one before |
 | `Ctrl+P` | A new master password; asks for the current one first |
 | `Esc` | Clear what you typed, then quit |
 | `Ctrl+Q` | Quit |
@@ -36,7 +36,7 @@ Type a few letters and the list narrows to the entries that have them. Every fie
 
 Two tabs are always there: `Web` for entries with a site, `Other` for the rest. Give an entry tags, words with spaces between, and each tag gets a tab with every entry that has it.
 
-In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a new password of 24 characters, and `Ctrl+Y` copies the field. `Esc` asks whether to keep the changes. A long note opens in your editor.
+In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a new password of 24 characters, and `Ctrl+Y` copies the field. `←` or `Esc` goes back, and asks whether to keep the changes. A long note opens in your editor.
 
 After five minutes with no key, vault ends.
 

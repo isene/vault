@@ -67,8 +67,13 @@ impl Login {
     /// What to call it in a list: its title, or the site without `https://`.
     pub fn name(&self) -> String {
         if !self.title.is_empty() { return self.title.clone(); }
-        let site = site_key(&self.origin);
-        site.split_once("://").map(|(_, host)| host.to_string()).unwrap_or(site)
+        if self.is_web() {
+            let site = site_key(&self.origin);
+            return site.split_once("://").map(|(_, host)| host.to_string()).unwrap_or(site);
+        }
+        // No title and no site: still a line one can see and pick.
+        if !self.username.is_empty() { return self.username.clone(); }
+        "(no name)".to_string()
     }
 
     /// Two entries with the same answer here are the same entry.
