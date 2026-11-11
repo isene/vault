@@ -37,7 +37,7 @@ Type a few letters and the list narrows to the entries that have them. Every fie
 
 Two tabs are always there: `Web` for entries with a site, `Other` for the rest. Give an entry tags, words with spaces between, and each tag gets a tab with every entry that has it.
 
-On a tag's tab, `Ctrl+T` opens [prism](https://github.com/isene/prism) to pick the colour of its name. The colours are lines in `~/.vaultrc`: `colour work #78e68c`.
+On a tag's tab, `Ctrl+T` opens [prism](https://github.com/isene/prism) to pick the colour of its name. An entry's name in the list takes the colour of its first tag that has one. The colours are lines in `~/.vaultrc`: `colour work #78e68c`.
 
 In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a new password of 24 characters, and `Ctrl+Y` copies the field. `←` or `Esc` goes back, and asks whether to keep the changes. A long note opens in your editor.
 

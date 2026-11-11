@@ -364,7 +364,8 @@ impl App {
                         format!("{} {}", if l.is_web() { WEB } else { OTHER }, l.group).trim_end().to_string()
                     };
                     let line = format!(" {}  {}  {}",
-                        style::rgb(&fit(&l.name(), name_w), Some(TEXT_RGB), None, ""),
+                        // The name in the colour of the entry's first tag that has one.
+                        style::rgb(&fit(&l.name(), name_w), Some(l.tags().find_map(|g| self.colour(g)).unwrap_or(TEXT_RGB)), None, ""),
                         style::rgb(&fit(&l.username, name_w), Some(HEAD_RGB), None, ""),
                         style::rgb(&take_cells(&last, w.saturating_sub(2 * name_w + 6)), Some(DIM_RGB), None, ""));
                     if self.top + r == self.sel { pick(&line, w) } else { line }
