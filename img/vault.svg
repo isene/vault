@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="back" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" style="stop-color:#23202b"/>
+      <stop offset="100%" style="stop-color:#0a0910"/>
+    </radialGradient>
+  </defs>
+  <circle cx="128" cy="128" r="124" fill="url(#back)"/>
+
+  <!-- a safe door: the ring of the dial, its marks, and the handle -->
+  <circle cx="128" cy="128" r="74" fill="none" stroke="#f74c00" stroke-width="14" opacity="0.7"/>
+  <g stroke="#ffb066" stroke-width="6" stroke-linecap="round" opacity="0.8">
+    <path d="M128 68 V84"/><path d="M128 172 V188"/>
+    <path d="M68 128 H84"/><path d="M172 128 H188"/>
+  </g>
+  <g stroke="#ffb066" stroke-width="12" stroke-linecap="round">
+    <path d="M128 128 L128 92"/>
+    <path d="M128 128 L159 146"/>
+    <path d="M128 128 L97 146"/>
+  </g>
+  <circle cx="128" cy="128" r="15" fill="#ffb066"/>
+
+  <circle cx="128" cy="128" r="124" fill="none" stroke="#f74c00" stroke-width="3" stroke-opacity=".9"/>
+  <circle cx="128" cy="128" r="118" fill="none" stroke="#ffb066" stroke-width="1" stroke-opacity=".5"/>
+</svg>

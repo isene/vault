@@ -1,0 +1,85 @@
+# vault
+
+<img src="img/vault.svg" align="right" width="150">
+
+**Every password in one encrypted file, and one key press to paste one.**
+
+![Rust](https://img.shields.io/badge/language-Rust-orange) ![Unlicense](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux-blue) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
+
+The logins your browser fills, and the passwords it has no use for: a server, a door code. Part of the [Fe₂O₃ Rust terminal suite](https://github.com/isene/fe2o3).
+
+vault reads the same file as the [gaze](https://github.com/isene/gaze) browser and its phone half. A login gaze saves shows up here, and one you change here is the one gaze fills.
+
+## Using it
+
+```bash
+vault
+```
+
+It asks for the master password. The first time, it asks twice and makes the file.
+
+Type a few letters and the list narrows to the entries that have them. Every field but the password is searched. The list never shows a password.
+
+| Key | Does |
+|---|---|
+| letters | Find |
+| `Enter` | Copy the password, for one paste |
+| `Ctrl+U` | Copy the user name |
+| `Tab` | Open the entry: see and change everything |
+| `Ctrl+N` or `Ins` | A new entry |
+| `Ctrl+D` or `Del` | Delete the entry, after a yes |
+| `←` `→` | The tab to the left or right |
+| `Esc` | Clear what you typed, then quit |
+| `Ctrl+Q` | Quit |
+| `F1` | This list, in a box |
+
+The tabs are `Web` for logins with a site, one tab per group you name, and `Other` for the rest.
+
+In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a new password of 24 characters, and `Ctrl+Y` copies the field. `Esc` asks whether to keep the changes. A long note opens in your editor.
+
+After five minutes with no key, vault ends.
+
+## One paste, then gone
+
+`Enter` hands the password to a small helper that owns the clipboard. The first program that pastes gets it. Two seconds later the helper ends, and the clipboard is empty.
+
+With no paste it ends after 30 seconds, or when you copy something else. In between it sleeps: it wakes only when a program asks for the clipboard. The rest of the day it does not exist.
+
+The helper marks the clipboard as a password (`x-kde-passwordManagerHint`). A clipboard history that honours the mark, such as [yank](https://github.com/isene/yank) from 0.3.9, keeps no copy.
+
+Outside X there is no helper. vault then copies through the terminal (OSC 52), and the password stays until you copy something else.
+
+## The file
+
+`~/.gaze/sync/passwords`. `VAULT_FILE` names another one.
+
+- The key is made from the master password with Argon2id.
+- The list is sealed with ChaCha20-Poly1305, under a fresh nonce at every save.
+- Nothing is written in the clear, and vault talks to no network.
+
+Share the folder `~/.gaze/sync` with your phone through [Syncthing](https://syncthing.net), which encrypts the connection. The file is sealed before it leaves, so the connection carries nothing readable either way.
+
+If both sides change the file at the same moment, Syncthing keeps both copies. vault and gaze merge them at the next start: for each entry, the copy changed last wins.
+
+## Install
+
+```bash
+git clone https://github.com/isene/crust
+git clone https://github.com/isene/vault
+cd vault && cargo build --release
+ln -s "$PWD/target/release/vault" ~/bin/vault
+```
+
+## For other programs
+
+The crate is a library too. `default-features = false` leaves out the terminal program:
+
+```toml
+vault = { git = "https://github.com/isene/vault", default-features = false }
+```
+
+`Store` opens, changes and saves the file. gaze and the phone app are built on it, so the three cannot drift apart.
+
+## License
+
+[Unlicense](LICENSE): public domain.
