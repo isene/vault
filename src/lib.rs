@@ -56,6 +56,12 @@ pub struct Login {
 }
 
 impl Login {
+    /// The tags of the entry: the words of its `group` field, split at
+    /// commas and spaces.
+    pub fn tags(&self) -> impl Iterator<Item = &str> {
+        self.group.split(|c: char| c == ',' || c.is_whitespace()).filter(|t| !t.is_empty())
+    }
+
     pub fn is_web(&self) -> bool { !self.origin.trim().is_empty() }
 
     /// What to call it in a list: its title, or the site without `https://`.
@@ -232,6 +238,14 @@ impl Store {
         self.refresh();
         if self.key.is_none() { return Err("the password file changed on another machine; unlock again".into()); }
         Ok(())
+    }
+
+    /// Is this the master password the open store was opened with?
+    pub fn is_master(&self, master: &str) -> bool {
+        match (self.key, derive(master, &self.salt)) {
+            (Some(key), Ok(k)) => key == k,
+            _ => false,
+        }
     }
 
     /// Seal the store under a new master password, with a fresh salt.

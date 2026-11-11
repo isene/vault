@@ -105,20 +105,25 @@ impl App {
         }
     }
 
-    /// The tabs: Web, your groups by name, and Other when something has
-    /// neither a site nor a group.
+    /// The tabs: Web and Other, then one for each tag in use.
     fn tabs(&self) -> Vec<String> {
-        let mut groups: Vec<String> = self.store.logins().iter().filter(|l| !l.group.is_empty()).map(|l| l.group.clone()).collect();
-        groups.sort_by_key(|g| g.to_lowercase());
-        groups.dedup();
-        let mut tabs = vec![WEB.to_string()];
-        tabs.extend(groups);
-        if self.store.logins().iter().any(|l| l.group.is_empty() && !l.is_web()) { tabs.push(OTHER.to_string()); }
+        let mut tags: Vec<String> = self.store.logins().iter().flat_map(|l| l.tags().map(str::to_string))
+            .filter(|t| !t.eq_ignore_ascii_case(WEB) && !t.eq_ignore_ascii_case(OTHER)).collect();
+        tags.sort_by_key(|t| t.to_lowercase());
+        tags.dedup_by_key(|t| t.to_lowercase());
+        let mut tabs = vec![WEB.to_string(), OTHER.to_string()];
+        tabs.extend(tags);
         tabs
     }
 
-    fn tab_of(l: &Login) -> &str {
-        if !l.group.is_empty() { &l.group } else if l.is_web() { WEB } else { OTHER }
+    /// Web has every entry with a site and Other every one without. A
+    /// tagged entry is in its tags' tabs as well.
+    fn in_tab(l: &Login, tab: &str) -> bool {
+        match tab {
+            WEB => l.is_web(),
+            OTHER => !l.is_web(),
+            tag => l.tags().any(|t| t.to_lowercase() == tag.to_lowercase()),
+        }
     }
 
     /// The entries in the list now, by name.
@@ -127,11 +132,29 @@ impl App {
         let tab = tabs.get(self.tab).cloned().unwrap_or_default();
         let q = self.query.to_lowercase();
         let mut rows: Vec<Login> = self.store.logins().iter().filter(|l| {
-            if q.is_empty() { return Self::tab_of(l) == tab; }
+            if q.is_empty() { return Self::in_tab(l, &tab); }
             [&l.title, &l.origin, &l.username, &l.group, &l.note].iter().any(|f| f.to_lowercase().contains(&q))
         }).cloned().collect();
         rows.sort_by_key(|l| (l.name().to_lowercase(), l.username.to_lowercase()));
         rows
+    }
+
+    /// A new master password. The current one is asked for first, so an
+    /// open vault left alone cannot be given a password of someone else's.
+    fn new_master(&mut self) {
+        let Some(now) = ask(" Current master password: ", "", true) else { return };
+        if !self.store.is_master(&now) { self.note = "That is not the master password. Nothing changed.".into(); return; }
+        let Some(new) = ask(" New master password: ", "", true) else { return };
+        if new.is_empty() { self.note = "An empty master password is no password. Nothing changed.".into(); return; }
+        match ask(" Once more: ", "", true) {
+            Some(again) if again == new => {}
+            Some(_) => { self.note = "Those two were not the same. Nothing changed.".into(); return; }
+            None => return,
+        }
+        self.note = match self.store.change_master(&new) {
+            Ok(()) => "The master password is changed. gaze and the phone ask for the new one.".into(),
+            Err(e) => format!("{e}. Nothing changed."),
+        };
     }
 
     fn run(&mut self) {
@@ -184,6 +207,7 @@ impl App {
                 "TAB" => if let Some(l) = picked { self.edit(Some(l)); },
                 "C-N" | "INS" => self.edit(None),
                 "C-D" | "DEL" => if let Some(l) = picked { self.delete(l); },
+                "C-P" => { self.new_master(); Crust::clear_screen(); }
                 "F1" => { help(); Crust::clear_screen(); }
                 "BACK" => { self.query.pop(); self.sel = 0; }
                 k if k.chars().count() == 1 && !k.chars().next().is_some_and(char::is_control) => {
@@ -247,7 +271,8 @@ impl App {
                     let last = if self.query.is_empty() {
                         if l.is_web() && !l.title.is_empty() { vault::site_key(&l.origin) } else { first_line(&l.note) }
                     } else {
-                        Self::tab_of(l).to_string()
+                        // Where it lives, and its tags.
+                        format!("{} {}", if l.is_web() { WEB } else { OTHER }, l.group).trim_end().to_string()
                     };
                     let line = format!(" {}  {}  {}",
                         style::rgb(&fit(&l.name(), name_w), Some(TEXT_RGB), None, ""),
@@ -278,7 +303,7 @@ impl App {
         let start = l.clone();
         let mut at = 0usize;
         let mut note = String::new();
-        const NAMES: [&str; 6] = ["Title", "Group", "Site", "User", "Password", "Note"];
+        const NAMES: [&str; 6] = ["Title", "Tags", "Site", "User", "Password", "Note"];
         Crust::clear_screen();
         loop {
             let (cols, rows) = Crust::terminal_size();
@@ -347,7 +372,8 @@ impl App {
         self.note = match done { Ok(()) => format!("kept {name}"), Err(e) => e };
         // Stay on the entry: its tab, and the cursor on it.
         self.query.clear();
-        self.tab = self.tabs().iter().position(|t| t == Self::tab_of(&l)).unwrap_or(0);
+        let tabs = self.tabs();
+        if !tabs.get(self.tab).is_some_and(|t| Self::in_tab(&l, t)) { self.tab = if l.is_web() { 0 } else { 1 }; }
         self.sel = self.rows().iter().position(|r| r.name() == name && r.username == l.username).unwrap_or(0);
     }
 }
@@ -393,6 +419,7 @@ fn help() {
     t.push_str(&format!("{}a new entry in this tab\n", key("Ctrl+N")));
     t.push_str(&format!("{}delete the entry\n", key("Ctrl+D")));
     t.push_str(&format!("{}the tab to the left or right\n", key("← →")));
+    t.push_str(&format!("{}a new master password\n", key("Ctrl+P")));
     t.push_str(&format!("{}empty the search, or quit\n", key("Esc")));
     t.push_str(&format!(" {}\n", hdr("AN ENTRY")));
     t.push_str(&format!("{}change the field under the cursor\n", key("Enter")));
@@ -401,9 +428,9 @@ fn help() {
     t.push_str(&format!("{}back; asks before it keeps a change\n", key("Esc")));
     t.push_str(&format!(" {}\n", hdr("GOOD TO KNOW")));
     t.push_str("  An entry with a Site is a web login: gaze fills it.\n");
-    t.push_str("  A Group is a tab of its own.\n");
+    t.push_str("  Tags are words, with spaces between. Each has a tab.\n");
     t.push_str("  Five minutes with no key, and vault ends.");
-    Popup::centered(62, 22, 231, 236).view(&t);
+    Popup::centered(62, 23, 231, 236).view(&t);
 }
 
 fn first_line(s: &str) -> String { s.lines().next().unwrap_or("").to_string() }
@@ -461,10 +488,31 @@ mod tests {
     }
 
     #[test]
-    fn the_tabs_are_web_then_the_groups_then_other() {
-        let a = app("tabs");
-        assert_eq!(a.tabs(), ["Web", "Servers", "Work", "Other"]);
-        assert_eq!(a.rows().iter().map(Login::name).collect::<Vec<_>>(), ["example.com"]);
+    fn the_tabs_are_web_and_other_then_the_tags() {
+        let mut a = app("tabs");
+        a.store.add(Login { origin: "https://work.example".into(), group: "work, vpn".into(), password: "p".into(), ..Login::default() }).unwrap();
+        assert_eq!(a.tabs(), ["Web", "Other", "Servers", "vpn", "Work"]);
+        let names = |a: &App| a.rows().iter().map(Login::name).collect::<Vec<_>>();
+        assert_eq!(names(&a), ["example.com", "work.example"]);
+        a.tab = 1;
+        assert_eq!(names(&a), ["bike lock", "build server", "office door"], "a tagged entry stays in Other");
+        a.tab = 4;
+        assert_eq!(names(&a), ["office door", "work.example"], "a tag gathers web and other entries");
+        a.tab = 3;
+        assert_eq!(names(&a), ["work.example"], "an entry with two tags is in both tabs");
+    }
+
+    #[test]
+    fn the_master_password_is_checked_before_it_changes() {
+        let mut a = app("master");
+        assert!(a.store.is_master("m"));
+        assert!(!a.store.is_master("x"));
+        a.store.change_master("n").unwrap();
+        assert!(a.store.is_master("n") && !a.store.is_master("m"));
+        let dir = std::env::temp_dir().join(format!("vault-app-master-{}", std::process::id()));
+        let mut again = Store::new(dir.join("passwords"));
+        assert!(again.unlock("m").is_err());
+        assert_eq!(again.unlock("n").unwrap(), 4);
     }
 
     #[test]

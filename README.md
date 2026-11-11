@@ -29,11 +29,12 @@ Type a few letters and the list narrows to the entries that have them. Every fie
 | `Ctrl+N` or `Ins` | A new entry |
 | `Ctrl+D` or `Del` | Delete the entry, after a yes |
 | `←` `→` | The tab to the left or right |
+| `Ctrl+P` | A new master password; asks for the current one first |
 | `Esc` | Clear what you typed, then quit |
 | `Ctrl+Q` | Quit |
 | `F1` | This list, in a box |
 
-The tabs are `Web` for logins with a site, one tab per group you name, and `Other` for the rest.
+Two tabs are always there: `Web` for entries with a site, `Other` for the rest. Give an entry tags, words with spaces between, and each tag gets a tab with every entry that has it.
 
 In an open entry, `↑` `↓` move, `Enter` changes the field, `Ctrl+G` makes a new password of 24 characters, and `Ctrl+Y` copies the field. `Esc` asks whether to keep the changes. A long note opens in your editor.
 
