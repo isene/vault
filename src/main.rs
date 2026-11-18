@@ -531,8 +531,16 @@ impl App {
         Crust::clear_screen();
         if l == start { return; }
         if l.title.is_empty() && !l.is_web() { self.note = "not kept: an entry needs a title or a site".into(); return; }
-        self.say(&format!("keep the changes to {}? y/n", l.name()));
-        if Input::getchr_ms(60_000).as_deref() != Some("y") { self.note = "changes dropped".into(); return; }
+        // Enter or y keeps, n or Esc drops. Any other key asks again, so a
+        // stray key never throws away an entry that was typed in.
+        self.say(&format!("keep the changes to {}? Enter or y keeps, n drops", l.name()));
+        loop {
+            match Input::getchr_ms(60_000).as_deref() {
+                Some("y" | "Y" | "ENTER") => break,
+                Some("n" | "N" | "ESC") | None => { self.note = "changes dropped".into(); return; }
+                _ => {}
+            }
+        }
         let name = l.name();
         let done = match &old {
             Some(o) => self.store.replace(o, l.clone()),
