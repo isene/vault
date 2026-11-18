@@ -575,13 +575,14 @@ fn in_editor(text: &str) -> Result<String, String> {
 
 /// The bar along the bottom: what just happened, or the keys.
 fn foot(note: &str, keys: &str, w: usize, rows: u16) -> String {
-    let version = format!("v{} ", env!("CARGO_PKG_VERSION"));
+    let version = crust::version_tag("vault", env!("CARGO_PKG_VERSION"));
+    let vw = crust::display_width(&version);
     let text = if note.is_empty() { keys } else { note };
-    let text = format!(" {}", take_cells(text, w.saturating_sub(version.len() + 3)));
-    let pad = w.saturating_sub(crust::display_width(&text) + version.len());
+    let text = format!(" {}", take_cells(text, w.saturating_sub(vw + 3)));
+    let pad = w.saturating_sub(crust::display_width(&text) + vw);
     format!("{}{}{}", Cursor::at(1, rows),
         style::rgb(&format!("{text}{}", " ".repeat(pad)), Some((200, 200, 205)), Some(BAR_BG), ""),
-        style::rgb(&version, Some(DIM_RGB), Some(BAR_BG), ""))
+        style::rgb(&version, None, Some(BAR_BG), ""))
 }
 
 fn help() {

@@ -198,7 +198,7 @@ dependencies = [
 
 [[package]]
 name = "fe2o3-crust"
-version = "0.1.77"
+version = "0.1.78"
 dependencies = [
  "crossterm",
  "libc",
@@ -587,7 +587,7 @@ dependencies = [
 
 [[package]]
 name = "vault"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "aes",
  "argon2",
